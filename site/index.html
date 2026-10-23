@@ -1,14 +1,54 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>
-		
-	</title>
-	<link rel="stylesheet" type="text/css" href="css/style.css">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#123c32"><meta name="description" content="PROTEC — consentimento de riscos e segurança operacional">
+<title>PROTEC | Consentimento de riscos</title>
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
-</body>
-</html>
+<header class="topbar">
+  <a class="brand" href="#" aria-label="PROTEC"><span class="brand-mark">✓</span><span><b>PROTEC</b><small>SEGURANÇA OPERACIONAL</small></span></a>
+  <div class="top-right"><span id="apiStatus" class="api-status"><i id="apiDot"></i>Conectando…</span><button class="nav-button active" data-view="consent">Consentimento</button><button class="nav-button protected" data-view="admin">Cadastros <span>🔒</span></button><button class="nav-button protected" data-view="history">Histórico <span>🔒</span></button></div>
+</header>
+<main class="container">
+<section class="page active" id="consentView">
+  <div class="intro"><span class="eyebrow">ANTES DE INICIAR A OPERAÇÃO</span><h1>Consentimento de riscos</h1><p>Preencha os dados, confira os riscos e registre sua ciência. Leva apenas alguns instantes.</p></div>
+  <form id="consentForm" class="panel">
+    <div class="step-heading"><span>1</span><div><h2>Quem vai operar?</h2><p>Digite o nome e selecione o funcionário cadastrado.</p></div></div>
+    <div class="field"><label for="employeeInput">Funcionário <em>*</em></label><input id="employeeInput" list="employeeOptions" placeholder="Comece a digitar o nome…" autocomplete="off" required><datalist id="employeeOptions"></datalist><small>O nome precisa corresponder a um cadastro existente.</small></div>
+    <div class="field"><label for="machineSelect">Máquina ou equipamento <em>*</em></label><select id="machineSelect" required><option value="">Carregando máquinas…</option></select></div>
+    <div class="risk-box" id="riskBox"><div class="risk-heading"><span class="risk-symbol">!</span><div><b>Riscos desta máquina</b><small id="riskMachine">Selecione uma máquina para visualizar os riscos.</small></div></div><p id="riskText">Os riscos cadastrados aparecerão aqui.</p></div>
+    <div class="step-heading"><span>2</span><div><h2>Equipamentos de proteção individual (EPI)</h2><p>Informe os CAs dos equipamentos utilizados, quando aplicável.</p></div></div>
+    <div class="fields-two">
+      <div class="field"><label for="glassesCA">CA dos óculos</label><input id="glassesCA" maxlength="20" placeholder="Número do CA"><small>Certificado de Aprovação</small></div>
+      <div class="field"><label for="bootsCA">CA da bota</label><input id="bootsCA" maxlength="20" placeholder="Número do CA"><small>Certificado de Aprovação</small></div>
+    </div>
+    <div class="step-heading"><span>3</span><div><h2>Declaração de ciência</h2><p>Marque as confirmações para concluir.</p></div></div>
+    <div class="declarations">
+      <label class="check-row"><input type="checkbox" id="readRisks" required><span><b>Li e compreendi os riscos desta máquina.</b><small>Entendi os perigos e as medidas preventivas informadas.</small></span></label>
+      <label class="check-row"><input type="checkbox" id="usePPE" required><span><b>Estou ciente dos EPIs necessários.</b><small>Vou utilizar os EPIs adequados e seguir os procedimentos de segurança.</small></span></label>
+      <label class="check-row"><input type="checkbox" id="truthful" required><span><b>Confirmo a veracidade das informações.</b><small>Se não tiver treinamento, autorização ou condições seguras, não iniciarei a operação e procurarei a liderança.</small></span></label>
+    </div>
+    <div id="formError" class="message error" role="alert" hidden></div>
+    <div class="form-actions"><button type="button" class="button secondary" id="clearForm">Limpar</button><button type="submit" class="button primary" id="submitConsent">Confirmar ciência e registrar <span>→</span></button></div>
+    <p class="footnote">O registro documenta a declaração de ciência; não substitui treinamento, autorização de operação ou orientação de Segurança do Trabalho.</p>
+  </form>
+</section>
+<section class="page" id="adminView">
+  <div class="intro"><span class="eyebrow">ÁREA DE GESTÃO</span><h1>Cadastros</h1><p>Adicione funcionários e máquinas para que apareçam no formulário de consentimento.</p></div>
+  <div class="admin-grid">
+    <form id="employeeForm" class="panel"><div class="step-heading"><span>+</span><div><h2>Novo funcionário</h2><p>O nome será salvo no banco de dados.</p></div></div><div class="field"><label for="newEmployee">Nome completo <em>*</em></label><input id="newEmployee" maxlength="50" placeholder="Ex.: Maria da Silva" required></div><button class="button primary" type="submit">Salvar funcionário</button><div id="employeeMessage" class="message" hidden></div></form>
+    <form id="machineForm" class="panel"><div class="step-heading"><span>+</span><div><h2>Nova máquina</h2><p>Cadastre o equipamento e seus riscos.</p></div></div><div class="field"><label for="newMachine">Nome da máquina <em>*</em></label><input id="newMachine" maxlength="50" placeholder="Ex.: Prensa hidráulica" required></div><div class="field"><label for="newRisks">Riscos associados <em>*</em></label><textarea id="newRisks" maxlength="255" rows="4" placeholder="Descreva os riscos e perigos identificados…" required></textarea><small>Até 255 caracteres. Registre apenas informações validadas pela Segurança do Trabalho.</small></div><button class="button primary" type="submit">Salvar máquina</button><div id="machineMessage" class="message" hidden></div></form>
+  </div>
+  <div class="panel list-panel"><div class="list-header"><div><h2>Cadastros existentes</h2><p>Dados sincronizados com a API.</p></div><button class="button secondary" id="refreshData">Atualizar lista</button></div><div class="list-columns"><div><h3>Funcionários <span id="employeeCount">0</span></h3><ul id="employeeList"></ul></div><div><h3>Máquinas <span id="machineCount">0</span></h3><ul id="machineList"></ul></div></div></div>
+</section>
+<section class="page" id="historyView">
+  <div class="intro intro-inline"><div><span class="eyebrow">ÁREA RESTRITA · AUDITORIA</span><h1>Histórico de utilização</h1><p>Registros recentes de funcionários e máquinas com data, hora e CAs informados.</p></div><button class="button secondary" id="refreshHistory">↻ Atualizar</button></div>
+  <div class="panel history-panel"><div class="history-toolbar"><div><h2>Registros recentes</h2><p id="historySummary">Carregando…</p></div><input id="historySearch" type="search" placeholder="Buscar funcionário ou máquina…"></div><div class="table-wrap"><table><thead><tr><th>FUNCIONÁRIO</th><th>MÁQUINA</th><th>DATA E HORA</th><th>CA ÓCULOS</th><th>CA BOTA</th><th>STATUS</th></tr></thead><tbody id="historyBody"><tr><td colspan="6">Carregando registros…</td></tr></tbody></table></div></div>
+</section>
+</main>
+<footer><span>© 2026 PROTEC</span><span>Prevenção é responsabilidade de todos.</span></footer>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script type="module" src="js/app.js"></script>
+</body></html>
