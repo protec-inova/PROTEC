@@ -16,8 +16,9 @@ def isConfigValid():
     if not host:
         return False
 
-    #if not maquina:
-    #    return False
+    # Machine can be None
+    if not maquina:
+        return False
 
     return True
 
@@ -26,16 +27,20 @@ def main():
     # Force setup
     if "--setup" in sys.argv:
         runSetup()
-        return
 
-    # Validate configuration
-    if not isConfigValid():
+    # Keep opening setup until the configuration is valid
+    while not isConfigValid():
         print("Invalid or missing configuration.")
         print("Starting setup...")
 
-        runSetup()
-        return
+        setup_result = runSetup()
 
+        # User closed the setup without saving
+        if not setup_result:
+            print("Setup cancelled.")
+            return
+
+    print("Configuration is valid.")
     print("Starting application...")
 
     # startApplication()

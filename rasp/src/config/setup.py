@@ -7,6 +7,7 @@ from config.config import loadJsonConfig, writeJsonConfig
 class ConfigApp:
     def __init__(self, root):
         self.root = root
+        self.saved = False
 
         # Window
         self.root.title("Protec Setup")
@@ -127,16 +128,14 @@ class ConfigApp:
             pady=(2, 8)
         )
 
-        # Machine options
-        # Later these will come from the API
+        # Starts empty.
+        # Options will be provided by the API later.
         self.machine_combobox = ctk.CTkComboBox(
             container,
             height=38,
-            values=["None"],
+            values=[],
             state="readonly"
         )
-
-        self.machine_combobox.set("None")
 
         self.machine_combobox.pack(
             fill="x",
@@ -163,26 +162,14 @@ class ConfigApp:
         config_atual = loadJsonConfig()
 
         if config_atual:
-            # Load Host
-            self.entry_host.insert(
-                0,
-                config_atual.get_host()
-            )
+            # Load only the Host.
+            # Machine will be provided by the API.
+            host = config_atual.get_host()
 
-            # Load Machine
-            machine_value = config_atual.get_maquina_id()
-
-            if machine_value is None or machine_value == "":
-                self.machine_combobox.set("None")
-            else:
-                # Keep the saved value even if it isn't
-                # available from the API yet.
-                self.machine_combobox.configure(
-                    values=["None", machine_value]
-                )
-
-                self.machine_combobox.set(
-                    machine_value
+            if host:
+                self.entry_host.insert(
+                    0,
+                    host
                 )
 
         else:
@@ -193,9 +180,12 @@ class ConfigApp:
 
     def saveData(self):
         new_host = self.entry_host.get().strip()
-        new_machine = self.machine_combobox.get()
+        new_machine = self.machine_combobox.get().strip()
 
-        # Host is required
+        # -------------------------
+        # Validation
+        # -------------------------
+
         if not new_host:
             messagebox.showwarning(
                 "Warning",
@@ -203,23 +193,30 @@ class ConfigApp:
             )
             return
 
-        # Convert "None" from the UI to Python None
-        if new_machine == "None":
-            new_machine = None
+        if not new_machine:
+            messagebox.showwarning(
+                "Warning",
+                "You need to select a Machine"
+            )
+            return
+
+        # -------------------------
+        # Save
+        # -------------------------
 
         try:
-            # Rewrite configuration
             writeJsonConfig(
                 new_host,
                 new_machine
             )
+
+            self.saved = True
 
             messagebox.showinfo(
                 "Success",
                 "Config was saved successfully!"
             )
 
-            # Close window after saving
             self.root.destroy()
 
         except Exception as e:
@@ -232,6 +229,8 @@ class ConfigApp:
 def runSetup():
     root = ctk.CTk()
 
-    ConfigApp(root)
+    app = ConfigApp(root)
 
     root.mainloop()
+
+    return app.saved
