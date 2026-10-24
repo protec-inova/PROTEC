@@ -7,18 +7,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-
 @RestController
 @RequestMapping("/maquinas")
 public class MaquinasController {
 
     private final MaquinasService maquinasService;
+    private final MaquinaGateway maquinaGateway;
 
     public MaquinasController(
-        MaquinasService maquinasService
-    ) {
+            MaquinasService maquinasService,
+            MaquinaGateway maquinaGateway) {
 
         this.maquinasService = maquinasService;
+        this.maquinaGateway = maquinaGateway;
     }
 
     // ── Getters ─────────────────────────────────────────────────────────────────
@@ -26,6 +27,11 @@ public class MaquinasController {
     @GetMapping
     public ResponseEntity<List<MaquinasResponse>> listAll() {
         return ResponseEntity.ok(maquinasService.getAll());
+    }
+
+    @GetMapping("/available")
+    public ResponseEntity<List<MaquinasResponse>> available() {
+        return ResponseEntity.ok(maquinaGateway.findAvailable());
     }
 
     @GetMapping("/{id}")
