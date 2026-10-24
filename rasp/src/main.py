@@ -1,8 +1,7 @@
-from config.config import loadJson
+from config.setup import runSetup
 
 def main():
-    print("Starting rasp pi...")
-    config = loadJson()
+    runSetup()
 
 if __name__ == "__main__":
     main()
