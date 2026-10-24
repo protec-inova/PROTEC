@@ -2,6 +2,7 @@ import requests
 
 
 class ProtecAPI:
+
     def __init__(self, host):
         self.host = host.rstrip("/")
 
@@ -17,24 +18,23 @@ class ProtecAPI:
 
             response.raise_for_status()
 
-            return True
+            data = response.json()
+
+            return data.get("status") == "UP"
 
         except requests.RequestException:
             return False
 
-
     def get_machines(self):
         try:
             response = requests.get(
-                f"{self.host}/machines",
+                f"{self.host}/maquinas/available",
                 timeout=5
             )
 
             response.raise_for_status()
 
-            data = response.json()
-
-            return data.get("machines", [])
+            return response.json()
 
         except requests.RequestException:
             return []

@@ -1,6 +1,8 @@
 import json
 
+
 class Config:
+
     def __init__(self, host, maquinaId):
         self.host = host
         self.maquinaId = maquinaId
@@ -14,18 +16,25 @@ class Config:
 
 def loadJsonConfig():
     try:
-        with open("config.json", "r", encoding="utf-8") as file:
+        with open(
+            "config.json",
+            "r",
+            encoding="utf-8"
+        ) as file:
+
             data = json.load(file)
-        
-        host = data["host"]
-        maquina = data["maquina"]
 
-        config = Config(host, maquina)
-        return config
+        host = data.get("host")
+        maquina = data.get("maquina")
 
-    except FileNotFoundError:
-        print("Error config.json not found.")
-        return None 
+        return Config(
+            host,
+            maquina
+        )
+
+    except (FileNotFoundError, json.JSONDecodeError):
+        print("Error loading config.json.")
+        return None
 
 
 def writeJsonConfig(host, maquinaId):
@@ -34,5 +43,15 @@ def writeJsonConfig(host, maquinaId):
         "maquina": maquinaId
     }
 
-    with open("config.json", "w", encoding="utf-8") as file:
-        json.dump(config, file, ensure_ascii=False, indent=4)
+    with open(
+        "config.json",
+        "w",
+        encoding="utf-8"
+    ) as file:
+
+        json.dump(
+            config,
+            file,
+            ensure_ascii=False,
+            indent=4
+        )
