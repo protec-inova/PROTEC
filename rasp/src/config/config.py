@@ -1,8 +1,11 @@
 import json
+from pathlib import Path
+
+# Always src/config.json, no matter where the program is started from
+CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.json"
 
 
 class Config:
-
     def __init__(self, host, maquinaId):
         self.host = host
         self.maquinaId = maquinaId
@@ -16,24 +19,16 @@ class Config:
 
 def loadJsonConfig():
     try:
-        with open(
-            "config.json",
-            "r",
-            encoding="utf-8"
-        ) as file:
-
+        with open(CONFIG_PATH, "r", encoding="utf-8") as file:
             data = json.load(file)
 
-        host = data.get("host")
-        maquina = data.get("maquina")
+        host = data["host"]
+        maquina = data["maquina"]
 
-        return Config(
-            host,
-            maquina
-        )
+        return Config(host, maquina)
 
-    except (FileNotFoundError, json.JSONDecodeError):
-        print("Error loading config.json.")
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Invalid or missing config.json: {e}")
         return None
 
 
@@ -43,15 +38,11 @@ def writeJsonConfig(host, maquinaId):
         "maquina": maquinaId
     }
 
-    with open(
-        "config.json",
-        "w",
-        encoding="utf-8"
-    ) as file:
+    with open(CONFIG_PATH, "w", encoding="utf-8") as file:
+        json.dump(config, file, ensure_ascii=False, indent=4)
 
-        json.dump(
-            config,
-            file,
-            ensure_ascii=False,
-            indent=4
-        )
+
+def clearMaquina():
+    """Keeps the host but forgets the machine, so the setup opens again."""
+    config = loadJsonConfig()
+    writeJsonConfig(config.get_host() if config else "", "")

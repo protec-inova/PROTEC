@@ -1,23 +1,22 @@
 import customtkinter as ctk
 from tkinter import messagebox
 
-from config.config import loadJsonConfig, writeJsonConfig
 from app.core.comm import ProtecAPI
+from config.config import loadJsonConfig, writeJsonConfig
 
 
 class ConfigApp:
-
-    def __init__(self, root):
+    def __init__(self, root, notice=None):
         self.root = root
+        self.notice = notice
         self.saved = False
-        self.api = None
-        self.machines = []
-        self.api_connected = False
-        self.last_host = ""
+
+        # Machines returned by the API: name -> {"id", "nome", "riscos"}
+        self.maquinas = {}
 
         # Window
         self.root.title("Protec Setup")
-        self.root.geometry("500x400")
+        self.root.geometry("500x600")
         self.root.resizable(False, False)
 
         # Theme
@@ -28,11 +27,6 @@ class ConfigApp:
         self.create_form()
 
         self.loadData()
-        self.start_api_monitor()
-
-    # ==========================================================
-    # HEADER
-    # ==========================================================
 
     def create_header(self):
         header = ctk.CTkFrame(
@@ -45,6 +39,7 @@ class ConfigApp:
         header.pack(fill="x")
         header.pack_propagate(False)
 
+        # Title
         title = ctk.CTkLabel(
             header,
             text="PROTEC SETUP",
@@ -57,6 +52,7 @@ class ConfigApp:
             padx=25
         )
 
+        # API status
         self.api_status = ctk.CTkLabel(
             header,
             text="● API Disconnected",
@@ -68,10 +64,6 @@ class ConfigApp:
             side="right",
             padx=20
         )
-
-    # ==========================================================
-    # FORM
-    # ==========================================================
 
     def create_form(self):
         container = ctk.CTkFrame(
@@ -86,9 +78,26 @@ class ConfigApp:
             pady=25
         )
 
-        # ------------------------------------------------------
+        # -------------------------
+        # Notice (e.g. machine already in use)
+        # -------------------------
+
+        if self.notice:
+            ctk.CTkLabel(
+                container,
+                text=self.notice,
+                font=("Arial", 11, "bold"),
+                text_color="#B45309",
+                wraplength=420,
+                justify="left"
+            ).pack(
+                anchor="w",
+                pady=(0, 15)
+            )
+
+        # -------------------------
         # Host Address
-        # ------------------------------------------------------
+        # -------------------------
 
         ctk.CTkLabel(
             container,
@@ -100,7 +109,7 @@ class ConfigApp:
 
         ctk.CTkLabel(
             container,
-            text="Address of the Protec API",
+            text="IP of the computer running the Protec API (port 8081 if omitted)",
             font=("Arial", 10),
             text_color="#777777"
         ).pack(
@@ -111,23 +120,34 @@ class ConfigApp:
         self.entry_host = ctk.CTkEntry(
             container,
             height=38,
-            placeholder_text="http://192.168.0.100:8080"
+            placeholder_text="192.168.0.100"
         )
 
         self.entry_host.pack(
             fill="x",
+            pady=(0, 10)
+        )
+
+        # Enter key also connects
+        self.entry_host.bind("<Return>", lambda event: self.connect())
+
+        self.btn_connect = ctk.CTkButton(
+            container,
+            text="Connect",
+            height=34,
+            fg_color="#6B7280",
+            hover_color="#4B5563",
+            command=self.connect
+        )
+
+        self.btn_connect.pack(
+            fill="x",
             pady=(0, 25)
         )
 
-        # Connect when leaving the Host field
-        self.entry_host.bind(
-            "<FocusOut>",
-            self.on_host_changed
-        )
-
-        # ------------------------------------------------------
+        # -------------------------
         # Machine
-        # ------------------------------------------------------
+        # -------------------------
 
         ctk.CTkLabel(
             container,
@@ -139,7 +159,7 @@ class ConfigApp:
 
         ctk.CTkLabel(
             container,
-            text="Select the machine to be configured",
+            text="Machine this device controls (only free machines are listed)",
             font=("Arial", 10),
             text_color="#777777"
         ).pack(
@@ -148,22 +168,40 @@ class ConfigApp:
         )
 
         # Starts empty.
-        # The API will provide the available machines.
+        # Options are filled by the API when you press Connect.
         self.machine_combobox = ctk.CTkComboBox(
             container,
             height=38,
             values=[],
-            state="readonly"
+            state="readonly",
+            command=self.on_machine_selected
         )
+
+        # Without this, an empty combobox shows (and returns) "CTkComboBox"
+        self.machine_combobox.set("")
 
         self.machine_combobox.pack(
             fill="x",
-            pady=(0, 30)
+            pady=(0, 8)
         )
 
-        # ------------------------------------------------------
+        self.riscos_label = ctk.CTkLabel(
+            container,
+            text="",
+            font=("Arial", 10),
+            text_color="#777777",
+            wraplength=420,
+            justify="left"
+        )
+
+        self.riscos_label.pack(
+            anchor="w",
+            pady=(0, 22)
+        )
+
+        # -------------------------
         # Save Button
-        # ------------------------------------------------------
+        # -------------------------
 
         self.btn_salvar = ctk.CTkButton(
             container,
@@ -177,162 +215,80 @@ class ConfigApp:
             fill="x"
         )
 
-    # ==========================================================
-    # LOAD CONFIGURATION
-    # ==========================================================
-
     def loadData(self):
         config_atual = loadJsonConfig()
 
-        if not config_atual:
+        if config_atual:
+            # Load only the Host.
+            # Machine will be provided by the API.
+            host = config_atual.get_host()
+
+            if host:
+                self.entry_host.insert(
+                    0,
+                    host
+                )
+
+                # Already knows the host: fill the machine list right away
+                self.root.after(200, self.connect)
+
+        else:
             messagebox.showinfo(
                 "Warning",
-                "config.json não encontrado. A new one will be created"
-            )
-            return
-
-        host = config_atual.get_host()
-
-        if host:
-            self.entry_host.insert(
-                0,
-                host
+                "config.json not found. A new one will be created"
             )
 
-            # Try connecting automatically
-            self.connect_api()
-
-    # ==========================================================
-    # HOST CHANGED
-    # ==========================================================
-
-    def on_host_changed(self, event=None):
-        self.connect_api()
-
-    # ==========================================================
-    # API CONNECTION
-    # ==========================================================
-
-    def connect_api(self):
+    def connect(self):
         host = self.entry_host.get().strip()
 
         if not host:
-            self.api = None
-            self.api_connected = False
-            self.set_api_status(False)
-            self.clear_machines()
+            messagebox.showwarning(
+                "Warning",
+                "You need to fill in the Host Address"
+            )
             return
 
-        self.set_api_connecting()
-
+        # Note: the window may freeze for up to ~5s if the API is unreachable
         api = ProtecAPI(host)
+        online = api.health()
 
-        if not api.health():
-            self.api = None
-            self.api_connected = False
-            self.set_api_status(False)
-            self.clear_machines()
-            return
-
-        self.api = api
-        self.api_connected = True
-
-        self.set_api_status(True)
-
-        self.load_machines()
-
-    # ==========================================================
-    # LOAD MACHINES
-    # ==========================================================
-
-    def load_machines(self):
-        if self.api is None:
-            return
-
-        machines = self.api.get_machines()
-
-        self.machines = machines
-
-        machine_names = [
-            machine["nome"]
-            for machine in machines
-            if machine.get("nome")
-        ]
-
-        self.machine_combobox.configure(
-            values=machine_names
-        )
-
-        self.machine_combobox.set("")
-
-        # Try to restore previously configured machine
-        config_atual = loadJsonConfig()
-
-        if not config_atual:
-            return
-
-        saved_machine_id = config_atual.get_maquina_id()
-
-        if not saved_machine_id:
-            return
-
-        for machine in machines:
-            if str(machine.get("id")) == str(saved_machine_id):
-                self.machine_combobox.set(
-                    machine["nome"]
-                )
-                break
-
-    # ==========================================================
-    # API STATUS
-    # ==========================================================
-
-    def set_api_connecting(self):
         self.api_status.configure(
-            text="● Connecting...",
-            text_color="#CA8A04"
+            text="● API Connected" if online else "● API Disconnected",
+            text_color="#16A34A" if online else "#DC2626"
         )
 
-    def set_api_status(self, connected):
-        if connected:
-            self.api_status.configure(
-                text="● API Connected",
-                text_color="#16A34A"
+        maquinas = api.get_available_maquinas() if online else []
+
+        self.maquinas = {m["nome"]: m for m in maquinas}
+
+        self.machine_combobox.configure(values=list(self.maquinas))
+        self.machine_combobox.set("")
+        self.riscos_label.configure(text="")
+
+        if not online:
+            messagebox.showwarning(
+                "Warning",
+                "Could not reach the API. Check the address."
             )
-        else:
-            self.api_status.configure(
-                text="● API Disconnected",
-                text_color="#DC2626"
+        elif not maquinas:
+            messagebox.showinfo(
+                "Info",
+                "No machine available. All of them are in use."
             )
 
-    # ==========================================================
-    # GET SELECTED MACHINE
-    # ==========================================================
+    def on_machine_selected(self, nome):
+        maquina = self.maquinas.get(nome)
 
-    def get_selected_machine_id(self):
-        selected_name = self.machine_combobox.get().strip()
-
-        if not selected_name:
-            return None
-
-        for machine in self.machines:
-            if machine.get("nome") == selected_name:
-                return machine.get("id")
-
-        return None
-
-    # ==========================================================
-    # SAVE
-    # ==========================================================
+        if maquina:
+            self.riscos_label.configure(text=f"Risks: {maquina['riscos']}")
 
     def saveData(self):
         new_host = self.entry_host.get().strip()
+        maquina = self.maquinas.get(self.machine_combobox.get().strip())
 
-        selected_machine_id = self.get_selected_machine_id()
-
-        # ------------------------------------------------------
-        # Host validation
-        # ------------------------------------------------------
+        # -------------------------
+        # Validation
+        # -------------------------
 
         if not new_host:
             messagebox.showwarning(
@@ -341,36 +297,22 @@ class ConfigApp:
             )
             return
 
-        # ------------------------------------------------------
-        # API validation
-        # ------------------------------------------------------
-
-        if self.api is None:
+        if not maquina:
             messagebox.showwarning(
                 "Warning",
-                "The API is not connected"
+                "Press Connect and select a Machine"
             )
             return
 
-        # ------------------------------------------------------
-        # Machine validation
-        # ------------------------------------------------------
-
-        if not selected_machine_id:
-            messagebox.showwarning(
-                "Warning",
-                "You need to select a Machine"
-            )
-            return
-
-        # ------------------------------------------------------
-        # Save configuration
-        # ------------------------------------------------------
+        # -------------------------
+        # Save
+        # -------------------------
 
         try:
+            # Saves the UUID (the API identifies machines by id, not by name)
             writeJsonConfig(
                 new_host,
-                selected_machine_id
+                maquina["id"]
             )
 
             self.saved = True
@@ -387,80 +329,12 @@ class ConfigApp:
                 "Error",
                 f"Not possible to save: {e}"
             )
-    
-    def start_api_monitor(self):
-        self.update_api_connection()
-
-        self.root.after(
-            2000,
-            self.start_api_monitor
-        )
-
-    def update_api_connection(self):
-        host = self.entry_host.get().strip()
-
-        if not host:
-            if self.api_connected:
-                self.api_connected = False
-
-            self.api = None
-            self.set_api_status(False)
-            self.clear_machines()
-            return
-
-        # Se o endereço mudou, precisamos criar uma nova conexão
-        if host != self.last_host:
-            self.last_host = host
-            self.api = ProtecAPI(host)
-            self.api_connected = False
-
-        if self.api is None:
-            self.api = ProtecAPI(host)
-
-        connected = self.api.health()
-
-        # API acabou de conectar
-        if connected and not self.api_connected:
-            self.api_connected = True
-            self.set_api_status(True)
-
-            self.load_machines()
-
-        # API continua conectada
-        elif connected and self.api_connected:
-            self.set_api_status(True)
-
-            # Atualiza a lista de máquinas
-            self.load_machines()
-
-        # API caiu
-        elif not connected and self.api_connected:
-            self.api_connected = False
-            self.api = None
-
-            self.set_api_status(False)
-            self.clear_machines()
-
-        # Continua desconectada
-        elif not connected:
-            self.api_connected = False
-            self.set_api_status(False)
-
-        
-    def clear_machines(self):
-        self.machines = []
-
-        self.machine_combobox.configure(
-            values=[]
-        )
-
-        self.machine_combobox.set("")
 
 
-def runSetup():
+def runSetup(notice=None):
     root = ctk.CTk()
 
-    app = ConfigApp(root)
+    app = ConfigApp(root, notice)
 
     root.mainloop()
 
