@@ -2,7 +2,6 @@ name: CI - Build
 
 on:
   push:
-    branches: [main]
   pull_request:
 
 permissions:
@@ -22,12 +21,33 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "No requirements.txt found; skipping dependency install"
+          fi
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: Make Gradle executable
         run: chmod +x ./gradlew
 
-      # Os testes usam H2 em memória (profile "test"), não precisam de banco nem de secrets.
       - name: Build and test
         run: ./gradlew build
+
+      - name: Validate Python sources
+        run: |
+          if [ -d ./rasp ]; then
+            find ./rasp -path '*/.venv' -prune -o -name '*.py' -print0 | xargs -0 python -m py_compile
+          else
+            echo "Directory ./rasp not found; skipping Python validation"
+          fi
