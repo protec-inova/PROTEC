@@ -35,6 +35,21 @@ public class MaquinasService {
                 .toList();
     }
 
+    public List<MaquinasResponse> getAtivas() {
+        return maquinasRepository.findByAtividade(true)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    public List<MaquinasResponse> getInativas() {
+        return maquinasRepository.findByAtividade(false)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+
     public MaquinasResponse create(String nome, String riscos) {
         if (nome == null || nome.isBlank()) {
             throw new IllegalArgumentException("nome cannot be blank");
@@ -51,6 +66,7 @@ public class MaquinasService {
         Maquinas maquina = new Maquinas();
         maquina.setNome(nome);
         maquina.setRiscos(riscos);
+        maquina.setAtividade(true);
         maquinasRepository.save(maquina);
 
         return toResponse(maquina);
@@ -121,6 +137,28 @@ public class MaquinasService {
         return toResponse(maquina);
     }
 
+    public MaquinasResponse updateAtividade(String nome, boolean newAtivade)
+    {
+         Maquinas maquina = maquinasRepository.findByNome(nome)
+                .orElseThrow(() -> new IllegalArgumentException("maquina not found"));
+
+        maquina.setAtividade(newAtivade);
+        maquinasRepository.save(maquina);
+
+        return toResponse(maquina);
+    }
+
+    public MaquinasResponse updateAtividade(UUID Id, boolean newAtivade)
+    {
+         Maquinas maquina = maquinasRepository.findById(Id)
+                .orElseThrow(() -> new IllegalArgumentException("maquina not found"));
+
+        maquina.setAtividade(newAtivade);
+        maquinasRepository.save(maquina);
+
+        return toResponse(maquina);
+    }
+
 
     public void delete(UUID id) {
         if (!maquinasRepository.existsById(id)) {
@@ -138,11 +176,12 @@ public class MaquinasService {
         maquinasRepository.deleteByNome(nome);
     }
 
-    private MaquinasResponse toResponse(Maquinas maquina) {
+    public MaquinasResponse toResponse(Maquinas maquina) {
         return new MaquinasResponse(
                 maquina.getId(),
                 maquina.getNome(),
-                maquina.getRiscos()
+                maquina.getRiscos(),
+                maquina.getAtividade()
         );
     }
 }
