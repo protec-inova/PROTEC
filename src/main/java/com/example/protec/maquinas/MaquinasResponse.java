@@ -5,5 +5,6 @@ import java.util.UUID;
 public record MaquinasResponse(
     UUID id,
     String nome,
-    String riscos
+    String riscos,
+    boolean ativade
 ) {} 

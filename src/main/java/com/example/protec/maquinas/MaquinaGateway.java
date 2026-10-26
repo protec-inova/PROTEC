@@ -6,7 +6,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -17,8 +16,6 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import org.springframework.web.util.UriComponentsBuilder;
-
-import com.example.protec.consentimentos.Consentimentos;
 import com.example.protec.consentimentos.ConsentimentosRepository;
 
 @Component
@@ -28,16 +25,19 @@ public class MaquinaGateway extends TextWebSocketHandler {
     private static final Duration CONSENT_VALIDITY = Duration.ofHours(1);
 
     private final Map<UUID, WebSocketSession> sessions = new ConcurrentHashMap<>(); // maquinaId -> open connection
-    private final Map<UUID, Instant> lastSeen = new ConcurrentHashMap<>();          // maquinaId -> last message from the Pi
-    private final Map<UUID, Boolean> lastSentState = new ConcurrentHashMap<>();     // maquinaId -> last command sent
+    private final Map<UUID, Instant> lastSeen = new ConcurrentHashMap<>(); // maquinaId -> last message from the Pi
+    private final Map<UUID, Boolean> lastSentState = new ConcurrentHashMap<>(); // maquinaId -> last command sent
 
     private final MaquinasRepository maquinasRepository;
     private final ConsentimentosRepository consentimentosRepository;
+    private final MaquinasService maquinasService;
 
     public MaquinaGateway(MaquinasRepository maquinasRepository,
-                          ConsentimentosRepository consentimentosRepository) {
+            ConsentimentosRepository consentimentosRepository,
+            MaquinasService maquinasService) {
         this.maquinasRepository = maquinasRepository;
         this.consentimentosRepository = consentimentosRepository;
+        this.maquinasService = maquinasService;
     }
 
     // Pi connects at: ws://API:8081/ws/pi?maquinaId=<uuid>
@@ -111,20 +111,24 @@ public class MaquinaGateway extends TextWebSocketHandler {
         List<MaquinasResponse> result = new ArrayList<>();
         for (Maquinas maquina : maquinasRepository.findAll()) {
             if (!isOnline(maquina.getId())) {
-                result.add(new MaquinasResponse(maquina.getId(), maquina.getNome(), maquina.getRiscos()));
+                result.add(maquinasService.toResponse(maquina));
             }
         }
         return result;
     }
 
     private boolean hasValidConsent(UUID maquinaId) {
-        Optional<Consentimentos> latest =
-                consentimentosRepository.findFirstByMaquinaIdOrderByDataDesc(maquinaId);
-        if (latest.isEmpty()) {
+        boolean isAtiva = maquinasRepository.findById(maquinaId)
+                .map(Maquinas::getAtividade)
+                .orElse(false);
+
+        if (!isAtiva) {
             return false;
         }
-        Instant expiresAt = latest.get().getData().plus(CONSENT_VALIDITY);
-        return expiresAt.isAfter(Instant.now());
+
+        return consentimentosRepository.findFirstByMaquinaIdOrderByDataDesc(maquinaId)
+                .map(c -> c.getData().plus(CONSENT_VALIDITY).isAfter(Instant.now()))
+                .orElse(false);
     }
 
     private boolean isOnline(UUID maquinaId) {

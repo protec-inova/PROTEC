@@ -29,6 +29,16 @@ public class MaquinasController {
         return ResponseEntity.ok(maquinasService.getAll());
     }
 
+    @GetMapping("/ativas")
+    ResponseEntity<List<MaquinasResponse>> ativas() {
+        return ResponseEntity.ok(maquinasService.getAtivas());
+    }
+
+    @GetMapping("/inativas")
+    ResponseEntity<List<MaquinasResponse>> inativas() {
+        return ResponseEntity.ok(maquinasService.getInativas());
+    }
+
     @GetMapping("/available")
     public ResponseEntity<List<MaquinasResponse>> available() {
         return ResponseEntity.ok(maquinaGateway.findAvailable());
@@ -118,6 +128,31 @@ public class MaquinasController {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
     }
+
+    @PatchMapping("/nome/{nome}/atividade")
+    public ResponseEntity<MaquinasResponse> updateAtividade(
+            @PathVariable String nome,
+            @RequestParam Boolean atividade) {
+
+        try {
+            return ResponseEntity.ok(maquinasService.updateAtividade(nome, atividade));
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @PatchMapping("/{id}/atividade")
+    public ResponseEntity<MaquinasResponse> updateAtividade(
+            @PathVariable UUID id,
+            @RequestParam Boolean atividade) {
+
+        try {
+            return ResponseEntity.ok(maquinasService.updateAtividade(id, atividade));
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+    }
+
 
     // ── Delete ─────────────────────────────────────────────────────────────────
 
